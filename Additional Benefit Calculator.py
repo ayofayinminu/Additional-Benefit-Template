@@ -356,7 +356,8 @@ def main():
     
     # Progress indicator
     progress_text = f"Step {st.session_state.step} of 3"
-    st.sidebar.progress(st.session_state.step / 3, text=progress_text)
+    st.sidebar.write(progress_text)
+    st.sidebar.progress(st.session_state.step / 3)
     
     # Display app info in sidebar
     with st.sidebar.expander("ℹ️ About This App"):

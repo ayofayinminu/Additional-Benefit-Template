@@ -1,7 +1,7 @@
 """
 Pension Calculation System - Streamlit App (Deployment Ready)
 --------------------------------------------------------------
-This module calculates additional pension benefits for retirees based on Nigerian pension regulations.
+This module calculates pension benefits for retirees based on Nigerian pension regulations.
 It computes recommended lump sum payments and monthly pension amounts based on:
 - RSA (Retirement Savings Account) balance
 - Actuarial tables (gender and frequency dependent)
@@ -93,27 +93,46 @@ def load_pension_data():
     """
     Load all required CSV files for pension calculations.
     Uses relative paths for deployment compatibility.
+    Checks multiple locations: data/ folder, root folder, and current directory.
     
     Returns:
         tuple: (male12, female12, male4, female4, salarystructure) DataFrames or None if files not found
     """
-    # Try loading from data directory (for GitHub deployment)
-    data_dir = "data"
+    # Try multiple locations
+    search_locations = [
+        "data",           # data/ subfolder
+        ".",              # root/current directory
+        ""                # same directory as script
+    ]
     
-    file_paths = {
-        'male12': os.path.join(data_dir, "Male12.csv"),
-        'female12': os.path.join(data_dir, "Female12.csv"),
-        'male4': os.path.join(data_dir, "Male4.csv"),
-        'female4': os.path.join(data_dir, "Female4.csv"),
-        'salarystructure': os.path.join(data_dir, "SalaryStructure.csv")
+    file_names = {
+        'male12': "Male12.csv",
+        'female12': "Female12.csv",
+        'male4': "Male4.csv",
+        'female4': "Female4.csv",
+        'salarystructure': "SalaryStructure.csv"
     }
     
-    # Check if all files exist
-    missing_files = [name for name, path in file_paths.items() if not os.path.exists(path)]
+    # Try to find files in each location
+    file_paths = {}
+    for location in search_locations:
+        temp_paths = {
+            key: os.path.join(location, fname) if location else fname
+            for key, fname in file_names.items()
+        }
+        
+        # Check if all files exist in this location
+        if all(os.path.exists(path) for path in temp_paths.values()):
+            file_paths = temp_paths
+            break
     
-    if missing_files:
+    # If no location has all files, report missing
+    if not file_paths:
+        # Check which files are missing from all locations
+        missing_files = list(file_names.keys())
         return None, missing_files
     
+    # Try to load the files
     try:
         male12 = pd.read_csv(file_paths['male12'])
         female12 = pd.read_csv(file_paths['female12'])
@@ -494,11 +513,11 @@ def main():
                 with col_grade:
                     grade_level = st.text_input("Grade Level", key="grade_level")
                 with col_step:
-                    step = st.text_input("Step", key="step")
+                    step_input = st.text_input("Step", key="step_input")
                 
-                if salary_structure and grade_level and step:
+                if salary_structure and grade_level and step_input:
                     validated_salary = get_annual_salary(
-                        salary_structure, grade_level, step, salarystructure
+                        salary_structure, grade_level, step_input, salarystructure
                     )
                     if validated_salary:
                         st.success(f"✅ Annual Salary Found: ₦{validated_salary:,.2f}")

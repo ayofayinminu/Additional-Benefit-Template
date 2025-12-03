@@ -1,7 +1,7 @@
 """
 Pension Calculation System - Streamlit App (Deployment Ready)
 --------------------------------------------------------------
-This module calculates pension benefits for retirees based on Nigerian pension regulations.
+This module calculates additional pension benefits for retirees based on Nigerian pension regulations.
 It computes recommended lump sum payments and monthly pension amounts based on:
 - RSA (Retirement Savings Account) balance
 - Actuarial tables (gender and frequency dependent)
@@ -425,7 +425,7 @@ def main():
         
         if st.button("Next →", key="step1_next"):
             # Validate dates
-            if dob >= retirement_date.replace(year=dob.year):
+            if retirement_date <= dob:
                 st.error("❌ Retirement date must be after date of birth")
             elif request_date < retirement_date:
                 st.error("❌ Request date must be on or after retirement date")

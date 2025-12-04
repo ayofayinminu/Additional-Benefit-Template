@@ -588,8 +588,9 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
             st.success(f"✅ File uploaded successfully! Found {len(input_df)} client records.")
             
             # Show preview
-            with st.expander("👀 Preview Uploaded Data", expanded=True):
-                st.dataframe(input_df, use_container_width=True)
+            with st.expander("👀 Preview Uploaded Data", expanded=False):
+                st.write(f"Showing first 10 rows of {len(input_df)} total records")
+                st.dataframe(input_df.head(10), use_container_width=True)
             
             # Process button
             if st.button("🚀 Process All Clients", type="primary"):
@@ -665,7 +666,8 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                 tab1, tab2 = st.tabs(["✅ All Results", "❌ Errors Only"])
                 
                 with tab1:
-                    st.dataframe(results_df, use_container_width=True)
+                    st.write(f"Total records: {len(results_df)}")
+                    st.dataframe(results_df, use_container_width=True, height=400)
                     
                     # Download button
                     csv_results = results_df.to_csv(index=False)
@@ -673,13 +675,15 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                         label="⬇️ Download Results (CSV)",
                         data=csv_results,
                         file_name=f"pension_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
+                        mime="text/csv",
+                        key="download_all"
                     )
                 
                 with tab2:
                     error_df = results_df[results_df['Status'] == 'Failed']
                     if len(error_df) > 0:
-                        st.dataframe(error_df, use_container_width=True)
+                        st.write(f"Total errors: {len(error_df)}")
+                        st.dataframe(error_df, use_container_width=True, height=400)
                         
                         # Download errors
                         csv_errors = error_df.to_csv(index=False)
@@ -687,7 +691,8 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                             label="⬇️ Download Errors (CSV)",
                             data=csv_errors,
                             file_name=f"pension_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
+                            mime="text/csv",
+                            key="download_errors"
                         )
                     else:
                         st.success("🎉 No errors! All records processed successfully.")

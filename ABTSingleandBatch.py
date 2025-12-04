@@ -466,6 +466,9 @@ def process_single_client(row, male4, male12, female4, female12, salarystructure
         other_pension = -pmt(monthly_interest_rate, total_payment_periods, 
                             (additional_inflow - negotiated_lumpsum), fv=0, when=1)
         
+        # Calculate pension with max lumpsum (after lumpsum withdrawal)
+        new_pension_with_lumpsum = new_pension
+        
         # Determine final scenario
         output_values = calculate_additional_pension_scenario(
             new_pension, other_pension, current_pension,
@@ -473,22 +476,26 @@ def process_single_client(row, male4, male12, female4, female12, salarystructure
             recommended_pension, other_recommended_pension
         )
         
-        # Return results
+        # Return results - simplified output matching input + 3 calculated fields
         return {
             'Status': 'Success',
-            'Client_Age': current_age,
-            'Years_In_Retirement': years_in_retirement,
-            'Validated_Annual_Salary': validated_salary,
-            'Min_Monthly_Pension': minimum_pension_payout,
-            'Max_Pension_Possible': output_values[0],
-            'Recommended_Lumpsum': recommended_lumpsum,
-            'Recommended_Pension': output_values[1],
-            'Negotiated_Lumpsum': negotiated_lumpsum,
+            'Client_ID': row.get('Client_ID', ''),
+            'Gender': gender,
+            'Sector': sector,
+            'DOB': dob.strftime('%Y-%m-%d'),
+            'Retirement_Date': retirement_date.strftime('%Y-%m-%d'),
+            'Request_Date': request_date.strftime('%Y-%m-%d'),
+            'Frequency': frequency,
+            'RSA_Balance_Before_Inflow': rsa_balance_before_inflow,
+            'Additional_Inflow': additional_inflow,
+            'Current_RSA_Balance': rsa_balance,
             'Current_Pension': current_pension,
-            'New_Monthly_Pension': output_values[2],
-            'Pension_Increase': output_values[2] - current_pension,
-            'Annuity_Factor': annuity_factor,
-            'Total_Payment_Periods': total_payment_periods
+            'Annual_Salary': validated_salary,
+            'Salary_Structure': row.get('Salary_Structure', ''),
+            'Grade_Level': row.get('Grade_Level', ''),
+            'Step': row.get('Step', ''),
+            'Negotiated_Lumpsum': recommended_lumpsum,  # Max lumpsum
+            'New_Pension_With_Lumpsum': new_pension_with_lumpsum
         }
         
     except Exception as e:
@@ -508,7 +515,6 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
         
         **Basic Information:**
         - `Client_ID` - Unique identifier for the client
-        - `Client_Name` - Client's full name
         - `Gender` - M/F or Male/Female
         - `Sector` - PU/PR or Public/Private
         - `DOB` - Date of birth (YYYY-MM-DD or DD-MM-YYYY)
@@ -521,11 +527,15 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
         - `Additional_Inflow` - Additional inflow amount
         - `Current_RSA_Balance` - Current RSA balance
         - `Current_Pension` - Current pension amount
-        - `Negotiated_Lumpsum` - (Optional) Pre-negotiated lumpsum, default 0
         
         **Salary Information:**
         - **For Private Sector:** `Annual_Salary` - Annual salary amount
         - **For Public Sector:** `Salary_Structure`, `Grade_Level`, `Step`
+        
+        **Output (automatically calculated):**
+        - `Negotiated_Lumpsum` - Maximum lumpsum the client can receive
+        - `New_Pension_With_Lumpsum` - New monthly pension after taking max lumpsum
+        - `Status` - Success/Failed
         
         ### Download Template:
         """)
@@ -533,7 +543,6 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
         # Create sample template
         template_data = {
             'Client_ID': ['C001', 'C002'],
-            'Client_Name': ['John Doe', 'Jane Smith'],
             'Gender': ['M', 'F'],
             'Sector': ['PR', 'PU'],
             'DOB': ['1970-01-15', '1965-05-20'],
@@ -547,8 +556,7 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
             'Annual_Salary': [650000, 0],
             'Salary_Structure': ['', 'CONPOSS'],
             'Grade_Level': ['', '2'],
-            'Step': ['', '1'],
-            'Negotiated_Lumpsum': [0, 0]
+            'Step': ['', '1']
         }
         
         template_df = pd.DataFrame(template_data)
@@ -621,10 +629,17 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                 # Convert results to DataFrame
                 results_df = pd.DataFrame(results)
                 
-                # Reorder columns to put identifiers first
-                id_cols = ['Client_ID', 'Client_Name', 'Status']
-                other_cols = [col for col in results_df.columns if col not in id_cols]
-                results_df = results_df[id_cols + other_cols]
+                # Reorder columns to match required output format
+                output_cols = [
+                    'Client_ID', 'Gender', 'Sector', 'DOB', 'Retirement_Date', 'Request_Date',
+                    'Frequency', 'RSA_Balance_Before_Inflow', 'Additional_Inflow', 
+                    'Current_RSA_Balance', 'Current_Pension', 'Annual_Salary',
+                    'Salary_Structure', 'Grade_Level', 'Step',
+                    'Negotiated_Lumpsum', 'New_Pension_With_Lumpsum', 'Status'
+                ]
+                
+                # Only include columns that exist in results
+                results_df = results_df[[col for col in output_cols if col in results_df.columns]]
                 
                 # Show summary
                 st.markdown("---")
@@ -644,10 +659,10 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                 
                 # Show results
                 st.markdown("---")
-                st.subheader("📊 Detailed Results")
+                st.subheader("📊 Results")
                 
                 # Tabs for different views
-                tab1, tab2, tab3 = st.tabs(["✅ All Results", "❌ Errors Only", "📄 Summary Statistics"])
+                tab1, tab2 = st.tabs(["✅ All Results", "❌ Errors Only"])
                 
                 with tab1:
                     st.dataframe(results_df, use_container_width=True)
@@ -655,7 +670,7 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                     # Download button
                     csv_results = results_df.to_csv(index=False)
                     st.download_button(
-                        label="⬇️ Download Full Results (CSV)",
+                        label="⬇️ Download Results (CSV)",
                         data=csv_results,
                         file_name=f"pension_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv"
@@ -676,59 +691,6 @@ def batch_processing_mode(male12, female12, male4, female4, salarystructure):
                         )
                     else:
                         st.success("🎉 No errors! All records processed successfully.")
-                
-                with tab3:
-                    success_df = results_df[results_df['Status'] == 'Success']
-                    
-                    if len(success_df) > 0:
-                        st.markdown("### Summary Statistics")
-                        
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.metric(
-                                "Average Recommended Lumpsum",
-                                f"₦{success_df['Recommended_Lumpsum'].mean():,.2f}"
-                            )
-                            st.metric(
-                                "Total Recommended Lumpsum",
-                                f"₦{success_df['Recommended_Lumpsum'].sum():,.2f}"
-                            )
-                            st.metric(
-                                "Average Client Age",
-                                f"{success_df['Client_Age'].mean():.1f} years"
-                            )
-                        
-                        with col2:
-                            st.metric(
-                                "Average New Monthly Pension",
-                                f"₦{success_df['New_Monthly_Pension'].mean():,.2f}"
-                            )
-                            st.metric(
-                                "Total Monthly Pension Payout",
-                                f"₦{success_df['New_Monthly_Pension'].sum():,.2f}"
-                            )
-                            st.metric(
-                                "Average Pension Increase",
-                                f"₦{success_df['Pension_Increase'].mean():,.2f}"
-                            )
-                        
-                        # Distribution charts
-                        st.markdown("---")
-                        st.markdown("### Distribution Charts")
-                        
-                        chart_col1, chart_col2 = st.columns(2)
-                        
-                        with chart_col1:
-                            st.markdown("**Age Distribution**")
-                            st.bar_chart(success_df['Client_Age'].value_counts().sort_index())
-                        
-                        with chart_col2:
-                            st.markdown("**Frequency Distribution**")
-                            freq_data = success_df.groupby('Client_Age')['New_Monthly_Pension'].mean()
-                            st.line_chart(freq_data)
-                    else:
-                        st.warning("No successful calculations to display statistics.")
         
         except Exception as e:
             st.error(f"❌ Error reading CSV file: {str(e)}")

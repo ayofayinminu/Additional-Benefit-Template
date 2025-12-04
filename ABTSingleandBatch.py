@@ -466,15 +466,15 @@ def process_single_client(row, male4, male12, female4, female12, salarystructure
         other_pension = -pmt(monthly_interest_rate, total_payment_periods, 
                             (additional_inflow - negotiated_lumpsum), fv=0, when=1)
         
-        # Calculate pension with max lumpsum (after lumpsum withdrawal)
-        new_pension_with_lumpsum = new_pension
-        
         # Determine final scenario
         output_values = calculate_additional_pension_scenario(
             new_pension, other_pension, current_pension,
             max_pension_possible, other_max_pension_possible,
             recommended_pension, other_recommended_pension
         )
+        
+        # New_Pension_With_Lumpsum is the final monthly pension (output_values[2])
+        new_pension_with_lumpsum = output_values[2]
         
         # Return results - simplified output matching input + 3 calculated fields
         return {
